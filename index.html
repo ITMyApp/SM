@@ -1594,13 +1594,12 @@ const incompatibiliEtichette = useMemo(() => etichetteIncompatAggregate(regoleIn
 
  return (
     <div>
-     <div className="sticky z-20 pb-2 pt-3 sm:pt-6 md:pt-10 -mt-3 sm:-mt-6 md:-mt-10" style={{ backgroundColor: paper, top: "max(env(safe-area-inset-top), 44px)" }}>
+    <div className="sticky z-20 pb-2 pt-3 sm:pt-6 md:pt-10 -mt-3 sm:-mt-6 md:-mt-10" style={{ backgroundColor: paper, top: "max(env(safe-area-inset-top), 44px)" }}>
         <div className="mb-5 flex items-start justify-between flex-wrap gap-3">
           <h1 className="ff-serif text-[24px] sm:text-[32px] leading-tight" style={{ color: ink }}>Clienti & Animali</h1>
           <button onClick={() => setModale({ modo: "nuovo" })} className="ff-sans text-xs font-semibold flex items-center gap-1 px-3.5 h-9 rounded-xl shrink-0 transition-all duration-200" style={{ backgroundColor: gold, color: "#2A1C05", boxShadow: shadowGoldGlow }}>
-    <Plus size={13} /> Nuovo cliente
-  </button>
-
+            <Plus size={13} /> Nuovo cliente
+          </button>
         </div>
 
         <div className="flex gap-1.5 mb-3">
@@ -1614,7 +1613,6 @@ const incompatibiliEtichette = useMemo(() => etichetteIncompatAggregate(regoleIn
         </div>
 
         <div className="flex gap-1.5 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
-
           {coppieFiltrate.length === 0 && <p className="ff-sans text-xs" style={{ color: faint }}>Nessun risultato.</p>}
           {coppieFiltrate.map(({ an, cl }) => {
             const active = an.id === selId;
@@ -1630,7 +1628,6 @@ const incompatibiliEtichette = useMemo(() => etichetteIncompatAggregate(regoleIn
             );
           })}
         </div>
-      </div>
       </div>
 
       {a && c && (
