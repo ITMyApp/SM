@@ -20,19 +20,24 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js" crossorigin></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
-  html, body { margin: 0; padding: 0; }
-  .ff-serif { font-family: 'Fraunces', serif; }
-  .ff-sans { font-family: 'IBM Plex Sans', sans-serif; }
-  ::-webkit-scrollbar { height: 6px; width: 6px; }
-  ::-webkit-scrollbar-thumb { background: #D6D0BE; border-radius: 10px; }
-  select { appearance: none; -webkit-appearance: none; }
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { scrollbar-width: none; }
-  /* iOS Safari ingrandisce automaticamente la pagina quando il campo attivo ha font-size
-     inferiore a 16px: forzandolo qui su tutti i campi, lo zoom non scatta più — resta
-     solo l'apparizione della tastiera, come richiesto. */
-  input, select, textarea { font-size: 16px !important; }
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+html, body { margin: 0; padding: 0; }
+/* Fix sovrapposizione con la status bar di iPhone (orologio/batteria/segnale) quando l'app
+è aperta a schermo intero da Home. env(safe-area-inset-top) viene calcolato automaticamente
+da iOS in base al modello (notch, Dynamic Island, o nessuno) — nessun valore fisso necessario.
+Richiede "viewport-fit=cover" nel meta viewport (già presente) per avere effetto reale. /
+body { padding-top: env(safe-area-inset-top); }
+.ff-serif { font-family: 'Fraunces', serif; }
+.ff-sans { font-family: 'IBM Plex Sans', sans-serif; }
+::-webkit-scrollbar { height: 6px; width: 6px; }
+::-webkit-scrollbar-thumb { background: #D6D0BE; border-radius: 10px; }
+select { appearance: none; -webkit-appearance: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+/* iOS Safari ingrandisce automaticamente la pagina quando il campo attivo ha font-size
+inferiore a 16px: forzandolo qui su tutti i campi, lo zoom non scatta più — resta
+solo l'apparizione della tastiera, come richiesto. /
+input, select, textarea { font-size: 16px !important; }
 </style>
 </head>
 <body>
