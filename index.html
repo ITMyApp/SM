@@ -20,12 +20,8 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js" crossorigin></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
-  /* Disabilita l'effetto "elastico" di Safari/iOS quando si scorre oltre i limiti della pagina
-     (mostrava uno spazio bianco vuoto in alto/basso durante lo scroll eccessivo). html è fissato
-     all'altezza dello schermo e non scrollabile; il vero scroll avviene dentro #root. */
-  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
-  #root { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+html, body { margin: 0; padding: 0; }
 /* Fix sovrapposizione con la status bar di iPhone (orologio/batteria/segnale) quando l'app
 è aperta a schermo intero da Home. env(safe-area-inset-top) viene calcolato automaticamente
 da iOS in base al modello (notch, Dynamic Island, o nessuno) — nessun valore fisso necessario.
@@ -1594,12 +1590,13 @@ const incompatibiliEtichette = useMemo(() => etichetteIncompatAggregate(regoleIn
 
  return (
     <div>
-    <div className="sticky z-20 pb-2 pt-3 sm:pt-6 md:pt-10 -mt-3 sm:-mt-6 md:-mt-10" style={{ backgroundColor: paper, top: "max(env(safe-area-inset-top), 44px)" }}>
+      <div className="sticky top-0 z-20 pb-2 pt-3 sm:pt-6 md:pt-10 -mt-3 sm:-mt-6 md:-mt-10" style={{ backgroundColor: paper }}>
         <div className="mb-5 flex items-start justify-between flex-wrap gap-3">
           <h1 className="ff-serif text-[24px] sm:text-[32px] leading-tight" style={{ color: ink }}>Clienti & Animali</h1>
           <button onClick={() => setModale({ modo: "nuovo" })} className="ff-sans text-xs font-semibold flex items-center gap-1 px-3.5 h-9 rounded-xl shrink-0 transition-all duration-200" style={{ backgroundColor: gold, color: "#2A1C05", boxShadow: shadowGoldGlow }}>
-            <Plus size={13} /> Nuovo cliente
-          </button>
+    <Plus size={13} /> Nuovo cliente
+  </button>
+
         </div>
 
         <div className="flex gap-1.5 mb-3">
@@ -1631,7 +1628,6 @@ const incompatibiliEtichette = useMemo(() => etichetteIncompatAggregate(regoleIn
       </div>
 
       {a && c && (
-
         <div className="rounded-2xl p-4 sm:p-6" style={{ backgroundColor: card }}>
           <div className="flex items-start justify-between gap-3 mb-4">
             <div className="flex items-start gap-3 min-w-0 flex-1">
