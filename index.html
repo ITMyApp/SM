@@ -1,3 +1,5 @@
+ultimo buono (attuale)
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -353,7 +355,7 @@ function calcolaStatistichePeriodo(appuntamenti, periodo, filtroMese, filtroAnno
 const pensioniAttiveIn = (iso, appuntamenti) =>
   appuntamenti.filter((a) => a.tipo === "Pensione" && a.stato !== "annullato" && a.dataRitiro <= iso && a.dataRiconsegna >= iso);
 
-// ---------- Motore  ----------
+// ---------- Motore conflitti ----------
 
 // LOGISTICA: la "finestra di occupazione" del sitter per un appuntamento.
 // - Passeggiata / Visita domiciliare: intervallo [inizio, fine) — l'intera durata del servizio.
@@ -386,7 +388,7 @@ function finestreSiSovrappongono(f1, f2) {
 }
 
 // COMPATIBILITÀ: l'intero intervallo del soggiorno (solo per Pensione) — da ritiro a riconsegna.
-// Usato SOLO per il confronto Pensione-vs-Pensione (vedi rileva).
+// Usato SOLO per il confronto Pensione-vs-Pensione (vedi rilevaConflitti).
 function soggiornoCompleto(app) {
   return [combinaDataOra(app.dataRitiro, app.oraRitiro), combinaDataOra(app.dataRiconsegna, app.oraRiconsegna)];
 }
@@ -457,10 +459,10 @@ function sonoIncompatibili(animA, animB) {
   const bVietaA = regoleB.some((r) => regolaCoinvolgeAnimale(r, animA));
   return aVietaB || bVietaA;
 }
-function rileva(candidato, appuntamenti, animali) {
-  const  = [];
+function rilevaConflitti(candidato, appuntamenti, animali) {
+  const conflitti = [];
   const animaleNuovo = animaleById(animali, candidato.animaleId);
-  if (!animaleNuovo) return ;
+  if (!animaleNuovo) return conflitti;
 
   const finestreNuovo = finestreLogistica(candidato);
   const soggiornoNuovo = candidato.tipo === "Pensione" ? soggiornoCompleto(candidato) : null;
@@ -478,7 +480,7 @@ function rileva(candidato, appuntamenti, animali) {
       const soggiornoAltro = soggiornoCompleto(a);
       const soggiorniSiSovrappongono = rangeSiSovrappongono(soggiornoNuovo[0], soggiornoNuovo[1], soggiornoAltro[0], soggiornoAltro[1]);
       if (soggiorniSiSovrappongono && sonoIncompatibili(animaleNuovo, animaleAltro)) {
-        .push({ tipo: "compatibilita", messaggio: `${animaleNuovo.nome} potrebbe non essere compatibile con ${animaleAltro.nome}, già in soggiorno dal ${fmtBreve(a.dataRitiro)} al ${fmtBreve(a.dataRiconsegna)}.` });
+        conflitti.push({ tipo: "compatibilita", messaggio: `${animaleNuovo.nome} potrebbe non essere compatibile con ${animaleAltro.nome}, già in soggiorno dal ${fmtBreve(a.dataRitiro)} al ${fmtBreve(a.dataRiconsegna)}.` });
       }
     }
 
@@ -488,26 +490,11 @@ function rileva(candidato, appuntamenti, animali) {
     const finestreAltro = finestreLogistica(a);
     const sovrappostiLogistica = finestreNuovo.some((f1) => finestreAltro.some((f2) => finestreSiSovrappongono(f1, f2)));
     if (sovrappostiLogistica) {
-      .push({ tipo: "logistica", messaggio: `Hai già un impegno con ${animaleAltro.nome} (${a.tipo}) che si sovrappone in orario con questo appuntamento.` });
+      conflitti.push({ tipo: "logistica", messaggio: `Hai già un impegno con ${animaleAltro.nome} (${a.tipo}) che si sovrappone in orario con questo appuntamento.` });
     }
   });
 
-return conflitti;
-}
-// Calcola dinamicamente, per OGNI appuntamento attivo, se è ATTUALMENTE in conflitto con
-// qualche altro appuntamento attivo. A differenza del campo a.conflitto (salvato una volta nel
-// database al momento della creazione, e poi mai più aggiornato), questo valore si ricalcola
-// automaticamente ogni volta che la lista appuntamenti cambia — quindi se sposti l'appuntamento
-// B che creava il conflitto con A, A torna "normale" da solo, senza bisogno di riaprirlo e
-// salvarlo di nuovo per "fargli capire" che la situazione è cambiata.
-function calcolaConflittiAttuali(appuntamenti, animali) {
-const mappa = {};
-const attivi = appuntamenti.filter((a) => a.stato !== "annullato");
-attivi.forEach((a) => {
-const trovati = rilevaConflitti(a, attivi, animali);
-mappa[a.id] = trovati.length > 0;
-});
-return mappa;
+  return conflitti;
 }
 // ---------- Costruzione eventi del giorno (timeline operativa) ----------
 function etichettaEventoInizio(tipo, nomeAnimale) {
@@ -1008,7 +995,7 @@ function GiorniSoggiornoEditor({ giorni, onChange }) {
   );
 }
 // ---------- Vista: Oggi (timeline dinamica) ----------
-function RigaAppuntamento({ a, animale, indirizzo, mostraRitiro, mostraRiconsegna, oraCorrente, onClick, index = 0, inConflittoAttuale = false }) {
+function RigaAppuntamento({ a, animale, indirizzo, mostraRitiro, mostraRiconsegna, oraCorrente, onClick, index = 0 }) {
   const lbl = etichetteServizio(a.tipo);
   const annullato = a.stato === "annullato";
   const rimandato = a.stato === "rimandato";
@@ -1025,7 +1012,7 @@ function RigaAppuntamento({ a, animale, indirizzo, mostraRitiro, mostraRiconsegn
             <p className="text-xs flex items-center gap-1 mt-0.5" style={{ color: faint }}><MapPin size={11} />{indirizzo}</p>
           </div>
           <div className="flex items-center gap-2">
-{inConflittoAttuale && <Chip tone="coral">Sovrapposto</Chip>}
+            {a.conflitto && <Chip tone="coral">Sovrapposto</Chip>}
             {rimandato && <Chip tone="gold">Rimandato</Chip>}
             {annullato && <Chip tone="coral">Annullato</Chip>}
             <Pencil size={14} color={faint} />
@@ -1190,7 +1177,7 @@ function GanttGiorno({ appuntamenti, animali, iso }) {
     </div>
   );
 }
-function VistaOggi({ appuntamenti, animali, clienti, onApriModifica, conflittiAttuali = {} }) {
+function VistaOggi({ appuntamenti, animali, clienti, onApriModifica }) {
   const oraCorrente = ORA_CORRENTE_STR;
 
   const oggiApp = appuntamenti.filter((a) => a.stato !== "annullato" && (a.dataRitiro === OGGI_ISO || a.dataRiconsegna === OGGI_ISO))
@@ -1280,11 +1267,10 @@ function VistaOggi({ appuntamenti, animali, clienti, onApriModifica, conflittiAt
             if (item.tipo === "appuntamento") {
               const { a, animale, cliente, mostraRitiro, mostraRiconsegna } = item;
               return (
-<RigaAppuntamento key={item.chiave} a={a} animale={animale} indirizzo={cliente.indirizzo}
-mostraRitiro={mostraRitiro} mostraRiconsegna={mostraRiconsegna} oraCorrente={oraCorrente}
-onClick={() => onApriModifica(a)} index={index} inConflittoAttuale={conflittiAttuali[a.id]} />
-);
-
+                <RigaAppuntamento key={item.chiave} a={a} animale={animale} indirizzo={cliente.indirizzo}
+                  mostraRitiro={mostraRitiro} mostraRiconsegna={mostraRiconsegna} oraCorrente={oraCorrente}
+                  onClick={() => onApriModifica(a)} index={index} />
+              );
             }
             const { ev } = item;
             return (
@@ -1404,84 +1390,77 @@ function SettimanaCompatta({ giorni, mese, appuntamenti, onSelect }) {
 // Richiesta 6: la pensione compare in tutti i giorni intermedi, non solo ingresso/uscita.
 // Richiesta 7+9: colori per tipologia di servizio applicati ai blocchi appuntamento.
 // Richiesta 8: gli annullati sono esclusi dalla vista Agenda.
-function SettimanaEsplosa({ giorni, appuntamenti, animali, onApriModifica, onApriNuovo, conflittiAttuali = {} }) {
-return (
-<div className="rounded-xl p-2 sm:p-2.5" style={{ backgroundColor: card, border: `1.5px solid ${gold}` }}>
-<div className="flex flex-col gap-2">
-{giorni.map((giorno) => {
-const iso = toISO(giorno);
-const isOggi = iso === OGGI_ISO;
-// Eventi "puntuali" (passeggiata/visita): se ritiro e riconsegna cadono nello stesso
-// giorno (il caso quasi sempre vero per questi due servizi), un UNICO evento con
-// "inizio-fine" combinati; altrimenti (raro, a cavallo di mezzanotte) restano due
-// eventi separati con un solo orario ciascuno, come già previsto.
-const eventiPuntuali = appuntamenti
-.filter((a) => a.stato !== "annullato" && a.tipo !== "Pensione" && (a.dataRitiro === iso || a.dataRiconsegna === iso))
-.flatMap((a) => {
-if (a.dataRitiro === a.dataRiconsegna) {
-return [{ a, ruolo: "completo", ora: a.oraRitiro, oraFine: a.oraRiconsegna }];
-}
-if (a.dataRitiro === iso) return [{ a, ruolo: "ritiro", ora: a.oraRitiro }];
-return [{ a, ruolo: "riconsegna", ora: a.oraRiconsegna }];
-});
-// Eventi "pensione": visibili per TUTTI i giorni del soggiorno. Se ritiro e riconsegna
-// cadono lo stesso giorno (pensione di un solo giorno), mostriamo "inizio-fine" insieme;
-// altrimenti resta la logica originale (arrivo/intermedio/uscita con un solo orario).
-const pensioniGiornoLista = pensioniAttiveIn(iso, appuntamenti);
-const eventiPensione = pensioniGiornoLista.map((a) => {
-if (a.dataRitiro === a.dataRiconsegna) {
-return { a, ruolo: "completo", ora: a.oraRitiro, oraFine: a.oraRiconsegna };
-}
-let fase = "intermedio";
-if (a.dataRitiro === iso) fase = "ingresso";
-else if (a.dataRiconsegna === iso) fase = "uscita";
-const ora = fase === "ingresso" ? a.oraRitiro : fase === "uscita" ? a.oraRiconsegna : "00:00";
-return { a, ruolo: fase, ora };
-});
-const eventi = [...eventiPuntuali, ...eventiPensione].sort((x, y) => x.ora.localeCompare(y.ora));
-return (
+function SettimanaEsplosa({ giorni, appuntamenti, animali, onApriModifica, onApriNuovo }) {
+  return (
+    <div className="rounded-xl p-2 sm:p-2.5" style={{ backgroundColor: card, border: `1.5px solid ${gold}` }}>
+      <div className="flex flex-col gap-2">
+        {giorni.map((giorno) => {
+          const iso = toISO(giorno);
+          const isOggi = iso === OGGI_ISO;
+
+          // Eventi "puntuali" (passeggiata/visita): solo giorno di ritiro/riconsegna, esclusi annullati.
+          const eventiPuntuali = appuntamenti
+            .filter((a) => a.stato !== "annullato" && a.tipo !== "Pensione" && (a.dataRitiro === iso || a.dataRiconsegna === iso))
+            .map((a) => ({ a, ruolo: a.dataRitiro === iso ? "ritiro" : "riconsegna", ora: a.dataRitiro === iso ? a.oraRitiro : a.oraRiconsegna }));
+
+          // Eventi "pensione": visibili per TUTTI i giorni del soggiorno (ingresso, intermedi, uscita).
+          const pensioniGiornoLista = pensioniAttiveIn(iso, appuntamenti);
+          const eventiPensione = pensioniGiornoLista.map((a) => {
+            let fase = "intermedio";
+            if (a.dataRitiro === iso) fase = "ingresso";
+            else if (a.dataRiconsegna === iso) fase = "uscita";
+            const ora = fase === "ingresso" ? a.oraRitiro : fase === "uscita" ? a.oraRiconsegna : "00:00";
+            return { a, ruolo: fase, ora };
+          });
+
+          const eventi = [...eventiPuntuali, ...eventiPensione].sort((x, y) => x.ora.localeCompare(y.ora));
+
+          return (
+
 <div key={iso} className="rounded-2xl p-2.5 sm:p-3 transition-all duration-300" style={{ backgroundColor: isOggi ? "#FFFDF6" : "#FFFFFF", border: isOggi ? `1.5px solid ${gold}` : "1px solid #ECE7D8", boxShadow: isOggi ? shadowSm : shadowXs }}>
-<div className="flex items-center justify-between mb-1.5 flex-wrap gap-1.5">
-<p className="ff-sans text-xs font-medium" style={{ color: isOggi ? gold : ink }}>{fmtGiornoLabelFull(giorno)}</p>
-</div>
-<div className="flex flex-col gap-1.5 mb-1.5">
-{eventi.length === 0 && <p className="ff-sans text-xs" style={{ color: "#B7B39F" }}>Libero</p>}
-{eventi.map(({ a, ruolo, ora, oraFine }) => {
-const animale = animaleById(animali, a.animaleId);
-if (!animale) return null;
-const col = coloriServizio(a.tipo);
-const rimandato = a.stato === "rimandato";
-const conflitto = conflittiAttuali[a.id] || false;
-let suffisso = "";
-if (ruolo === "ingresso") suffisso = " (arrivo)";
-else if (ruolo === "uscita") suffisso = " (fine)";
-else if (ruolo === "intermedio") suffisso = " (soggiorno)";
-else if (ruolo === "ritiro") suffisso = " (inizio)";
-else if (ruolo === "riconsegna") suffisso = " (fine)";
-// ruolo === "completo": nessun suffisso, mostriamo direttamente l'intervallo orario.
-const bgFinale = rimandato ? "#FBF3E2" : conflitto ? "#F0D2C6" : col.bg;
-const fgFinale = conflitto ? coral : col.fg;
-return (
-<button key={a.id + ruolo} onClick={() => onApriModifica(a)} className="w-full text-left ff-sans text-xs rounded-lg px-2 py-1.5 flex items-center gap-1 transition-all duration-150 hover:shadow-sm hover:brightness-95"
-style={{ backgroundColor: bgFinale, color: fgFinale }}>
-{conflitto && <AlertTriangle size={10} className="shrink-0" />}
-<span className="font-medium">{ruolo === "intermedio" ? "" : ruolo === "completo" ? `${ora}-${oraFine}` : ora}</span> {animale.nome}{suffisso}
-</button>
-);
-})}
-</div>
-<button onClick={() => onApriNuovo(iso)} className="ff-sans text-[11px] flex items-center gap-1" style={{ color: faint }}><Plus size={11} /> aggiungi</button>
-</div>
-);
-})}
-</div>
-</div>
-);
+              <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1.5">
+                <p className="ff-sans text-xs font-medium" style={{ color: isOggi ? gold : ink }}>{fmtGiornoLabelFull(giorno)}</p>
+              </div>
+              <div className="flex flex-col gap-1.5 mb-1.5">
+                {eventi.length === 0 && <p className="ff-sans text-xs" style={{ color: "#B7B39F" }}>Libero</p>}
+                {eventi.map(({ a, ruolo, ora }) => {
+                  const animale = animaleById(animali, a.animaleId);
+                  if (!animale) return null;
+                  const col = coloriServizio(a.tipo);
+                  const rimandato = a.stato === "rimandato";
+                  const conflitto = a.conflitto;
+                  let suffisso = "";
+                  if (a.tipo === "Pensione") {
+                    if (ruolo === "ingresso") suffisso = " (arrivo)";
+                    else if (ruolo === "uscita") suffisso = " (fine)";
+                    else suffisso = " (soggiorno)";
+                  } else {
+                    const multiGiorno = a.dataRitiro !== a.dataRiconsegna;
+                    if (multiGiorno) suffisso = ruolo === "ritiro" ? " (inizio)" : " (fine)";
+                  }
+                  const bgFinale = rimandato ? "#FBF3E2" : conflitto ? "#F0D2C6" : col.bg;
+                  const fgFinale = conflitto ? coral : col.fg;
+                  return (
+                    <button key={a.id + ruolo} onClick={() => onApriModifica(a)} className="w-full text-left ff-sans text-xs rounded-lg px-2 py-1.5 flex items-center gap-1 transition-all duration-150 hover:shadow-sm hover:brightness-95"
+                      style={{ backgroundColor: bgFinale, color: fgFinale }}>
+                      {conflitto && <AlertTriangle size={10} className="shrink-0" />}
+                      <span className="font-medium">{ruolo === "intermedio" ? "" : ora}</span> {animale.nome}{suffisso}
+                    </button>
+                  );
+                })}
+              </div>
+              <button onClick={() => onApriNuovo(iso)} className="ff-sans text-[11px] flex items-center gap-1" style={{ color: faint }}><Plus size={11} /> aggiungi</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // Stato di navigazione (meseVista/annoVista/weekEsplosa) ora SOLLEVATO in App,
 // per poter esporre le frecce di scorrimento settimana nella sidebar laterale.
-function VistaAgenda({ appuntamenti, animali, clienti, onApriModifica, onApriNuovo, meseVista, annoVista, weekEsplosa, onSelezionaSettimana, onSelezionaMese, conflittiAttuali = {} }) {
+function VistaAgenda({ appuntamenti, animali, clienti, onApriModifica, onApriNuovo, meseVista, annoVista, weekEsplosa, onSelezionaSettimana, onSelezionaMese }) {
   // Finestra dinamica di 25 mesi totali — 12 prima, corrente, 12 dopo. Nessun valore hardcoded.
   const mesiStrip = useMemo(() => Array.from({ length: 25 }, (_, i) => addMonths(new Date(OGGI.getFullYear(), OGGI.getMonth(), 1), i - 12)), []);
 
@@ -1557,8 +1536,8 @@ const { containerRef: mesiStripRef, itemRefs: mesiItemRefs, sliderStyle } = useM
         {settimane.map((giorniSettimana, idx) => {
           const isEsplosa = toISO(giorniSettimana[0]) === weekEsplosaISO;
           return isEsplosa ? (
-<SettimanaEsplosa key={idx} giorni={giorniSettimana} appuntamenti={appuntamentiVisibili} animali={animali} onApriModifica={onApriModifica} onApriNuovo={onApriNuovo} conflittiAttuali={conflittiAttuali} />
-) : (
+            <SettimanaEsplosa key={idx} giorni={giorniSettimana} appuntamenti={appuntamentiVisibili} animali={animali} onApriModifica={onApriModifica} onApriNuovo={onApriNuovo} />
+          ) : (
             <SettimanaCompatta key={idx} giorni={giorniSettimana} mese={meseVista} appuntamenti={appuntamentiVisibili} onSelect={() => onSelezionaSettimana(giorniSettimana[0])} />
           );
         })}
@@ -1603,21 +1582,7 @@ const incompatibiliEtichette = useMemo(() => etichetteIncompatAggregate(regoleIn
 
 
   // Ordine di esposizione = ordine di inserimento nel form: Razza → Taglia → Età.
-const sottotitolo = a ? [a.razza, a.taglia ? `Taglia ${a.taglia}` : "", formatEta(a.eta)].filter(Boolean).join(" · ") : "";
-// I campi storicoServizi/storicoIncassoTotale sul cliente restano fissi (pensati solo per
-// eventuale storico importato manualmente) — qui calcoliamo il totale REALE aggiungendo tutti
-// gli appuntamenti effettivi fatti tramite l'app, esattamente come già fa la Classifica in
-// Dashboard. Senza questo calcolo, i due numeri mostrati in profilo restavano sempre a 0.
-const statisticheCliente = useMemo(() => {
-if (!c) return { incassoTotale: 0, serviziTotali: 0 };
-const recenti = appuntamenti.filter((app) => app.clienteId === c.id && app.stato !== "annullato");
-const incassoRecente = recenti.reduce((s, app) => s + app.tariffaTotale, 0);
-return {
-incassoTotale: (c.storicoIncassoTotale || 0) + incassoRecente,
-serviziTotali: (c.storicoServizi || 0) + recenti.length,
-};
-}, [c, appuntamenti]);
-
+  const sottotitolo = a ? [a.razza, a.taglia ? `Taglia ${a.taglia}` : "", formatEta(a.eta)].filter(Boolean).join(" · ") : "";
 
 
   const handleSalvaModale = async (datiCliente, datiAnimale, animaleId, clienteId) => {
@@ -1749,9 +1714,9 @@ serviziTotali: (c.storicoServizi || 0) + recenti.length,
               )}
               <div className="w-full h-1.5 rounded-full mb-2.5" style={{ backgroundColor: "#E0DBC9" }}><div className="h-1.5 rounded-full" style={{ width: `${ranking.punteggio}%`, backgroundColor: gold }} /></div>
               <div className="grid grid-cols-2 gap-2 ff-sans">
-<div><p className="text-base font-medium" style={{ color: ink }}>{statisticheCliente.serviziTotali}</p><p className="text-[10px]" style={{ color: faint }}>prenotazioni</p></div>
-<div><p className="text-base font-medium" style={{ color: ink }}>€{statisticheCliente.incassoTotale}</p><p className="text-[10px]" style={{ color: faint }}>incasso</p></div>
-</div>
+                <div><p className="text-base font-medium" style={{ color: ink }}>{c.storicoServizi}</p><p className="text-[10px]" style={{ color: faint }}>prenotazioni</p></div>
+                <div><p className="text-base font-medium" style={{ color: ink }}>€{c.storicoIncassoTotale}</p><p className="text-[10px]" style={{ color: faint }}>incasso</p></div>
+              </div>
             </div>
           )}
 
@@ -1857,37 +1822,29 @@ function ModaleGiorno({ iso, appuntamenti, animali, clienti, onClose, onApriModi
 }
 
 // ---------- Modale Impostazioni: prezzi di default per servizio / specie / animale ----------
-function ModaleImpostazioniPrezzi({ tariffeDefault, animali, clienti, onAggiungiRegola, onRimuoviRegola, onAggiornaRegola, onClose }) {
-const [tipoSel, setTipoSel] = useState("Passeggiata");
-const [ambito, setAmbito] = useState("tutti"); // "tutti" | "cane" | "gatto" | "animale"
-const [animaleSelId, setAnimaleSelId] = useState("");
-const [prezzoInput, setPrezzoInput] = useState("");
-// Punto 4 (coerenza con il resto dell'app): esclude dalla selezione "Animale specifico" gli
-// animali appartenenti a clienti disattivati ("eliminati") — non ha senso impostare un prezzo
-// di default per un animale di un cliente che non è più operativo.
-const animaliOrdinati = useMemo(() => {
-const idClientiAttivi = new Set((clienti || []).filter((c) => c.attivo !== false).map((c) => c.id));
-return animali.filter((a) => idClientiAttivi.has(a.clienteId)).sort((a, b) => a.nome.localeCompare(b.nome));
-}, [animali, clienti]);
-const handleAggiungi = () => {
-const prezzoNum = Number(prezzoInput.replace(",", "."));
-if (!prezzoInput || isNaN(prezzoNum) || prezzoNum <= 0) return;
-if (ambito === "animale" && !animaleSelId) return;
-const specieValore = ambito === "cane" ? "cane" : ambito === "gatto" ? "gatto" : null;
-const animaleIdValore = ambito === "animale" ? Number(animaleSelId) : null;
-// Se esiste già una regola con lo STESSO identico ambito (stesso tipo + stessa specie +
-// stesso animale), la aggiorniamo invece di crearne una seconda duplicata.
-const esistente = tariffeDefault.find((t) =>
-t.tipo === tipoSel && (t.specie || null) === specieValore && (t.animaleId || null) === animaleIdValore
-);
-if (esistente) {
-onAggiornaRegola(esistente.id, prezzoNum);
-} else {
-onAggiungiRegola({ tipo: tipoSel, specie: specieValore, animaleId: animaleIdValore, prezzo: prezzoNum });
-}
-setPrezzoInput("");
-setAnimaleSelId("");
-};
+function ModaleImpostazioniPrezzi({ tariffeDefault, animali, onAggiungiRegola, onRimuoviRegola, onClose }) {
+  const [tipoSel, setTipoSel] = useState("Passeggiata");
+  const [ambito, setAmbito] = useState("tutti"); // "tutti" | "cane" | "gatto" | "animale"
+  const [animaleSelId, setAnimaleSelId] = useState("");
+  const [prezzoInput, setPrezzoInput] = useState("");
+
+  const animaliOrdinati = useMemo(() => [...animali].sort((a, b) => a.nome.localeCompare(b.nome)), [animali]);
+
+  const handleAggiungi = () => {
+    const prezzoNum = Number(prezzoInput.replace(",", "."));
+    if (!prezzoInput || isNaN(prezzoNum) || prezzoNum <= 0) return;
+    if (ambito === "animale" && !animaleSelId) return;
+    const regola = {
+      tipo: tipoSel,
+      specie: ambito === "cane" ? "cane" : ambito === "gatto" ? "gatto" : null,
+      animaleId: ambito === "animale" ? Number(animaleSelId) : null,
+      prezzo: prezzoNum,
+    };
+    onAggiungiRegola(regola);
+    setPrezzoInput("");
+    setAnimaleSelId("");
+  };
+
   const etichettaAmbito = (t) => {
     if (t.animaleId) {
       const al = animaleById(animali, t.animaleId);
@@ -2145,12 +2102,11 @@ function VistaDashboard({ appuntamenti, clienti, animali, onApriModifica, tariff
           onClose={() => setGiornoSelezionato(null)} onApriModifica={(a) => { setGiornoSelezionato(null); onApriModifica(a); }} />
       )}
 
-    {impostazioniAperte && (
-<ModaleImpostazioniPrezzi tariffeDefault={tariffeDefault} animali={animali} clienti={clienti}
-onAggiungiRegola={onAggiungiTariffaDefault} onRimuoviRegola={onRimuoviTariffaDefault}
-onAggiornaRegola={onAggiornaTariffaDefault}
-onClose={() => setImpostazioniAperte(false)} />
-)}
+      {impostazioniAperte && (
+        <ModaleImpostazioniPrezzi tariffeDefault={tariffeDefault} animali={animali}
+          onAggiungiRegola={onAggiungiTariffaDefault} onRimuoviRegola={onRimuoviTariffaDefault}
+          onClose={() => setImpostazioniAperte(false)} />
+      )}
     </div>
   );
 }
@@ -2250,23 +2206,16 @@ const aggiungiAllergia = () => setAllergie((prev) => [...prev, ""]);
 const aggiornaAllergia = (i, val) => setAllergie((prev) => prev.map((al, idx) => idx === i ? val : al));
 const rimuoviAllergia = (i) => setAllergie((prev) => prev.filter((_, idx) => idx !== i));
 
-  const [salvando, setSalvando] = useState(false);
-const handleSalva = async () => {
-if (salvando) return; // Blocco anti-doppio-click: ignora ulteriori tocchi durante il salvataggio.
-if (!nomeAnimale.trim() || !nomeCliente.trim()) return;
-setSalvando(true);
-try {
-const allergieTesto = allergie.map((a) => a.trim()).filter(Boolean).join(", ");
-const datiAnimale = {
-nome: nomeAnimale.trim(), specie, sesso, razza, taglia, eta, foto,
-temperamento, allergie: allergieTesto || "nessuna nota", farmaci: farmaci.filter((f) => f.nome.trim()),
-note: noteTesto, incompatibile: incompatSpecifiche,
-};
-const datiCliente = { nome: nomeCliente.trim(), telefono: telefonoCliente, indirizzo: indirizzoCliente };
-await onSalva(datiCliente, datiAnimale, animaleEsistente?.id, clienteEsistente?.id);
-} finally {
-setSalvando(false);
-}
+  const handleSalva = () => {
+  if (!nomeAnimale.trim() || !nomeCliente.trim()) return;
+  const allergieTesto = allergie.map((a) => a.trim()).filter(Boolean).join(", ");
+  const datiAnimale = {
+    nome: nomeAnimale.trim(), specie, sesso, razza, taglia, eta, foto,
+    temperamento, allergie: allergieTesto || "nessuna nota", farmaci: farmaci.filter((f) => f.nome.trim()),
+    note: noteTesto, incompatibile: incompatSpecifiche,
+  };
+  const datiCliente = { nome: nomeCliente.trim(), telefono: telefonoCliente, indirizzo: indirizzoCliente };
+  onSalva(datiCliente, datiAnimale, animaleEsistente?.id, clienteEsistente?.id);
 };
 
 
@@ -2387,9 +2336,9 @@ setSalvando(false);
           </div>
         </div>
 
-       <button onClick={handleSalva} disabled={salvando} className="ff-sans text-sm font-semibold px-5 py-2.5 rounded-xl w-full mt-3 transition-all duration-200" style={{ backgroundColor: gold, color: "#2A1C05", boxShadow: shadowGoldGlow, opacity: salvando ? 0.6 : 1 }}>
-{salvando ? "Salvataggio…" : (isNuovo ? "Crea cliente & animale" : "Salva modifiche")}
-</button>
+        <button onClick={handleSalva} className="ff-sans text-sm font-semibold px-5 py-2.5 rounded-xl w-full mt-3 transition-all duration-200" style={{ backgroundColor: gold, color: "#2A1C05", boxShadow: shadowGoldGlow }}>
+          {isNuovo ? "Crea cliente & animale" : "Salva modifiche"}
+        </button>
       </div>
     </div>
   );
@@ -2567,33 +2516,25 @@ const setFiltroPerSpecieQuickCreate = (specie, regolaOrNull) => setNuovoCliente(
     };
   };
 
- const [salvando, setSalvando] = useState(false);
-const handleSalva = async () => {
-if (salvando) return; // Blocco anti-doppio-click, soprattutto critico qui: evita di creare
-// due volte lo stesso "nuovo cliente al volo" se si tocca "Salva" più volte di fretta.
-setSalvando(true);
-try {
-if (isNuovo && creaNuovo && nuovoCliente.nomeCliente && nuovoCliente.nomeAnimale) {
-const nuovi = await onNuovoCliente(nuovoCliente);
-if (!nuovi) {
-alert("Errore durante la creazione del nuovo cliente. Apri la Console del browser (F12) per i dettagli.");
-return;
-}
-const candidato = { id: undefined, clienteId: nuovi.clienteId, animaleId: nuovi.animaleId, tipo, dataRitiro, oraRitiro, dataRiconsegna, oraRiconsegna, tariffaGiorno, tariffaTotale, nota, conflitto: false, stato: "confermato" };
-const animaleFittizio = { id: nuovi.animaleId, clienteId: nuovi.clienteId, nome: nuovoCliente.nomeAnimale, specie: nuovoCliente.specieAnimale || "cane", sesso: "M", incompatibile: nuovoCliente.incompatSpecifiche || [] };
-const animaliPerConflitto = [...animali, animaleFittizio];
-const trovati = rilevaConflitti(candidato, appuntamenti, animaliPerConflitto);
-if (trovati.length > 0) { setConflitti(trovati); setCandidatoPending(candidato); } else onSalva(candidato);
-return;
-}
-const candidato = costruisciCandidato();
-if (!candidato) return;
-const trovati = rilevaConflitti(candidato, appuntamenti, animali);
-if (trovati.length > 0) { setConflitti(trovati); setCandidatoPending(candidato); } else onSalva(candidato);
-} finally {
-setSalvando(false);
-}
-};
+  const handleSalva = async () => {
+    if (isNuovo && creaNuovo && nuovoCliente.nomeCliente && nuovoCliente.nomeAnimale) {
+      const nuovi = await onNuovoCliente(nuovoCliente);
+      if (!nuovi) {
+        alert("Errore durante la creazione del nuovo cliente. Apri la Console del browser (F12) per i dettagli.");
+        return;
+      }
+      const candidato = { id: undefined, clienteId: nuovi.clienteId, animaleId: nuovi.animaleId, tipo, dataRitiro, oraRitiro, dataRiconsegna, oraRiconsegna, tariffaGiorno, tariffaTotale, nota, conflitto: false, stato: "confermato" };
+      const animaleFittizio = { id: nuovi.animaleId, clienteId: nuovi.clienteId, nome: nuovoCliente.nomeAnimale, specie: nuovoCliente.specieAnimale || "cane", sesso: "M", incompatibile: nuovoCliente.incompatSpecifiche || [] };
+      const animaliPerConflitto = [...animali, animaleFittizio];
+      const trovati = rilevaConflitti(candidato, appuntamenti, animaliPerConflitto);
+      if (trovati.length > 0) { setConflitti(trovati); setCandidatoPending(candidato); } else onSalva(candidato);
+      return;
+    }
+    const candidato = costruisciCandidato();
+    if (!candidato) return;
+    const trovati = rilevaConflitti(candidato, appuntamenti, animali);
+    if (trovati.length > 0) { setConflitti(trovati); setCandidatoPending(candidato); } else onSalva(candidato);
+  };
 
   if (conflitti) {
     return (
@@ -2807,7 +2748,8 @@ setSalvando(false);
 
         <div className="flex items-center justify-between mt-5 flex-wrap gap-3">
           {!isNuovo ? (<button onClick={() => setConfermaAnnullaAperta(true)} className="ff-sans text-sm flex items-center gap-1.5 px-3 py-2 rounded-lg" style={{ color: coral }}><Ban size={14} /> Annulla appuntamento</button>) : <span />}
-<button onClick={handleSalva} disabled={salvando} className="ff-sans text-sm font-semibold px-5 py-2.5 rounded-xl w-full sm:w-auto transition-all duration-200" style={{ backgroundColor: gold, color: "#2A1C05", boxShadow: shadowGoldGlow, opacity: salvando ? 0.6 : 1 }}>{salvando ? "Salvataggio…" : (isNuovo ? "Salva appuntamento" : "Salva modifiche")}</button>
+          <button onClick={handleSalva} className="ff-sans text-sm font-semibold px-5 py-2.5 rounded-xl w-full sm:w-auto transition-all duration-200" style={{ backgroundColor: gold, color: "#2A1C05", boxShadow: shadowGoldGlow }}>{isNuovo ? "Salva appuntamento" : "Salva modifiche"}</button>
+
         </div>
 
         {confermaAnnullaAperta && (
@@ -2999,21 +2941,11 @@ function App() {
     setClienti((prev) => prev.map((c) => c.id === clienteId ? { ...c, attivo: false } : c));
   };
 
- const handleAggiungiTariffaDefault = async (regola) => {
-const { data, error } = await sb.from("tariffe_default").insert(tariffaDefaultToDb(regola)).select().single();
-if (error) { console.error(error); alert("Errore nel salvataggio della tariffa di default."); return; }
-setTariffeDefault((prev) => [...prev, tariffaDefaultFromDb(data)]);
-};
-// Aggiorna il PREZZO di una regola già esistente (stesso ambito: stesso tipo+specie+animale),
-// invece di creare un duplicato. Senza questo, "cambiare" un prezzo di default creava una
-// seconda riga, mentre quella vecchia — trovata per prima da trovaPrezzoDefault — continuava
-// a "vincere", dando l'impressione che la modifica non avesse alcun effetto.
-const handleAggiornaTariffaDefault = async (id, prezzo) => {
-const { data, error } = await sb.from("tariffe_default").update({ prezzo }).eq("id", id).select().single();
-if (error) { console.error(error); alert("Errore nell'aggiornamento della tariffa di default."); return; }
-const aggiornato = tariffaDefaultFromDb(data);
-setTariffeDefault((prev) => prev.map((t) => t.id === aggiornato.id ? aggiornato : t));
-};
+  const handleAggiungiTariffaDefault = async (regola) => {
+    const { data, error } = await sb.from("tariffe_default").insert(tariffaDefaultToDb(regola)).select().single();
+    if (error) { console.error(error); alert("Errore nel salvataggio della tariffa di default."); return; }
+    setTariffeDefault((prev) => [...prev, tariffaDefaultFromDb(data)]);
+  };
 
   const handleRimuoviTariffaDefault = async (id) => {
     const { error } = await sb.from("tariffe_default").delete().eq("id", id);
@@ -3072,30 +3004,38 @@ setTariffeDefault((prev) => prev.map((t) => t.id === aggiornato.id ? aggiornato 
   };
 
 
-const conflittiAttuali = useMemo(() => calcolaConflittiAttuali(appuntamenti, animali), [appuntamenti, animali]); 
-  if (caricamento) { return ( <div className="ff-sans min-h-screen flex items-center justify-center" style={{ backgroundColor: paper }}> <p className="ff-sans text-sm" style={{ color: faint }}>Caricamento dati…</p> 
-  </div> ); 
-                   } 
-  if (erroreCaricamento) { return ( <div className="ff-sans min-h-screen flex items-center justify-center p-6 text-center" style={{ backgroundColor: paper }}> <p className="ff-sans text-sm" style={{ color: coral }}>{erroreCaricamento}</p> </div> ); } 
-  const views = {
+  if (caricamento) {
+    return (
+      <div className="ff-sans min-h-screen flex items-center justify-center" style={{ backgroundColor: paper }}>
+        <p className="ff-sans text-sm" style={{ color: faint }}>Caricamento dati…</p>
+      </div>
+    );
+  }
+  if (erroreCaricamento) {
+    return (
+      <div className="ff-sans min-h-screen flex items-center justify-center p-6 text-center" style={{ backgroundColor: paper }}>
+        <p className="ff-sans text-sm" style={{ color: coral }}>{erroreCaricamento}</p>
+      </div>
+    );
+  }
 
-oggi: <VistaOggi appuntamenti={appuntamenti} animali={animali} clienti={clienti} onApriModifica={(a) => setModale({ esistente: a })} conflittiAttuali={conflittiAttuali} />,
-agenda: (
-<VistaAgenda
-appuntamenti={appuntamenti} animali={animali} clienti={clienti}
-onApriModifica={(a) => setModale({ esistente: a })}
-onApriNuovo={(data) => setModale({ dataDefault: data })}
-meseVista={agendaMese} annoVista={agendaAnno} weekEsplosa={agendaWeek}
-onSelezionaSettimana={agendaSelezionaSettimana}
-onSelezionaMese={agendaSelezionaMese}
-conflittiAttuali={conflittiAttuali}
-/>
-),
-clienti: <VistaClienti appuntamenti={appuntamenti} animali={animali} clienti={clienti} onSalvaClienteAnimale={handleSalvaClienteAnimale} onEliminaCliente={handleEliminaCliente} />,
-dashboard: <VistaDashboard appuntamenti={appuntamenti} clienti={clienti} animali={animali} onApriModifica={(a) => setModale({ esistente: a })}
-tariffeDefault={tariffeDefault} onAggiungiTariffaDefault={handleAggiungiTariffaDefault} onRimuoviTariffaDefault={handleRimuoviTariffaDefault}
-onAggiornaTariffaDefault={handleAggiornaTariffaDefault} />,
-};
+  const views = {
+    oggi: <VistaOggi appuntamenti={appuntamenti} animali={animali} clienti={clienti} onApriModifica={(a) => setModale({ esistente: a })} />,
+
+    agenda: (
+      <VistaAgenda
+        appuntamenti={appuntamenti} animali={animali} clienti={clienti}
+        onApriModifica={(a) => setModale({ esistente: a })}
+        onApriNuovo={(data) => setModale({ dataDefault: data })}
+        meseVista={agendaMese} annoVista={agendaAnno} weekEsplosa={agendaWeek}
+        onSelezionaSettimana={agendaSelezionaSettimana}
+        onSelezionaMese={agendaSelezionaMese}
+      />
+    ),
+    clienti: <VistaClienti appuntamenti={appuntamenti} animali={animali} clienti={clienti} onSalvaClienteAnimale={handleSalvaClienteAnimale} onEliminaCliente={handleEliminaCliente} />,
+    dashboard: <VistaDashboard appuntamenti={appuntamenti} clienti={clienti} animali={animali} onApriModifica={(a) => setModale({ esistente: a })}
+      tariffeDefault={tariffeDefault} onAggiungiTariffaDefault={handleAggiungiTariffaDefault} onRimuoviTariffaDefault={handleRimuoviTariffaDefault} />,
+  };
   return (
     <div className="ff-sans min-h-screen" style={{ backgroundColor: paper }}>
       <FontImport />
