@@ -353,7 +353,7 @@ function calcolaStatistichePeriodo(appuntamenti, periodo, filtroMese, filtroAnno
 const pensioniAttiveIn = (iso, appuntamenti) =>
   appuntamenti.filter((a) => a.tipo === "Pensione" && a.stato !== "annullato" && a.dataRitiro <= iso && a.dataRiconsegna >= iso);
 
-// ---------- Motore conflitti ----------
+// ---------- Motore  ----------
 
 // LOGISTICA: la "finestra di occupazione" del sitter per un appuntamento.
 // - Passeggiata / Visita domiciliare: intervallo [inizio, fine) — l'intera durata del servizio.
@@ -386,7 +386,7 @@ function finestreSiSovrappongono(f1, f2) {
 }
 
 // COMPATIBILITÀ: l'intero intervallo del soggiorno (solo per Pensione) — da ritiro a riconsegna.
-// Usato SOLO per il confronto Pensione-vs-Pensione (vedi rilevaConflitti).
+// Usato SOLO per il confronto Pensione-vs-Pensione (vedi rileva).
 function soggiornoCompleto(app) {
   return [combinaDataOra(app.dataRitiro, app.oraRitiro), combinaDataOra(app.dataRiconsegna, app.oraRiconsegna)];
 }
@@ -457,10 +457,10 @@ function sonoIncompatibili(animA, animB) {
   const bVietaA = regoleB.some((r) => regolaCoinvolgeAnimale(r, animA));
   return aVietaB || bVietaA;
 }
-function rilevaConflitti(candidato, appuntamenti, animali) {
-  const conflitti = [];
+function rileva(candidato, appuntamenti, animali) {
+  const  = [];
   const animaleNuovo = animaleById(animali, candidato.animaleId);
-  if (!animaleNuovo) return conflitti;
+  if (!animaleNuovo) return ;
 
   const finestreNuovo = finestreLogistica(candidato);
   const soggiornoNuovo = candidato.tipo === "Pensione" ? soggiornoCompleto(candidato) : null;
@@ -478,7 +478,7 @@ function rilevaConflitti(candidato, appuntamenti, animali) {
       const soggiornoAltro = soggiornoCompleto(a);
       const soggiorniSiSovrappongono = rangeSiSovrappongono(soggiornoNuovo[0], soggiornoNuovo[1], soggiornoAltro[0], soggiornoAltro[1]);
       if (soggiorniSiSovrappongono && sonoIncompatibili(animaleNuovo, animaleAltro)) {
-        conflitti.push({ tipo: "compatibilita", messaggio: `${animaleNuovo.nome} potrebbe non essere compatibile con ${animaleAltro.nome}, già in soggiorno dal ${fmtBreve(a.dataRitiro)} al ${fmtBreve(a.dataRiconsegna)}.` });
+        .push({ tipo: "compatibilita", messaggio: `${animaleNuovo.nome} potrebbe non essere compatibile con ${animaleAltro.nome}, già in soggiorno dal ${fmtBreve(a.dataRitiro)} al ${fmtBreve(a.dataRiconsegna)}.` });
       }
     }
 
@@ -488,7 +488,7 @@ function rilevaConflitti(candidato, appuntamenti, animali) {
     const finestreAltro = finestreLogistica(a);
     const sovrappostiLogistica = finestreNuovo.some((f1) => finestreAltro.some((f2) => finestreSiSovrappongono(f1, f2)));
     if (sovrappostiLogistica) {
-      conflitti.push({ tipo: "logistica", messaggio: `Hai già un impegno con ${animaleAltro.nome} (${a.tipo}) che si sovrappone in orario con questo appuntamento.` });
+      .push({ tipo: "logistica", messaggio: `Hai già un impegno con ${animaleAltro.nome} (${a.tipo}) che si sovrappone in orario con questo appuntamento.` });
     }
   });
 
@@ -3072,23 +3072,13 @@ setTariffeDefault((prev) => prev.map((t) => t.id === aggiornato.id ? aggiornato 
   };
 
 
-  if (caricamento) {
-    return (
-      <div className="ff-sans min-h-screen flex items-center justify-center" style={{ backgroundColor: paper }}>
-        <p className="ff-sans text-sm" style={{ color: faint }}>Caricamento dati…</p>
-      </div>
-    );
-  }
-  if (erroreCaricamento) {
-    return (
-      <div className="ff-sans min-h-screen flex items-center justify-center p-6 text-center" style={{ backgroundColor: paper }}>
-        <p className="ff-sans text-sm" style={{ color: coral }}>{erroreCaricamento}</p>
-      </div>
-    );
-  }
+const conflittiAttuali = useMemo(() => calcolaConflittiAttuali(appuntamenti, animali), [appuntamenti, animali]); 
+  if (caricamento) { return ( <div className="ff-sans min-h-screen flex items-center justify-center" style={{ backgroundColor: paper }}> <p className="ff-sans text-sm" style={{ color: faint }}>Caricamento dati…</p> 
+  </div> ); 
+                   } 
+  if (erroreCaricamento) { return ( <div className="ff-sans min-h-screen flex items-center justify-center p-6 text-center" style={{ backgroundColor: paper }}> <p className="ff-sans text-sm" style={{ color: coral }}>{erroreCaricamento}</p> </div> ); } 
+  const views = {
 
-const conflittiAttuali = useMemo(() => calcolaConflittiAttuali(appuntamenti, animali), [appuntamenti, animali]);
-const views = {
 oggi: <VistaOggi appuntamenti={appuntamenti} animali={animali} clienti={clienti} onApriModifica={(a) => setModale({ esistente: a })} conflittiAttuali={conflittiAttuali} />,
 agenda: (
 <VistaAgenda
